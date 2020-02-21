@@ -5,7 +5,7 @@ sleep 5
 xterm -e "roslaunch turtlebot_gazebo amcl_demo.launch map_file:=`pwd`/src/my_robot/maps/mymap.yaml" &
 sleep 5
 
-xterm -e "roslaunch turtlebot_rviz_launchers view_navigation.launch"
+xterm -e "roslaunch turtlebot_rviz_launchers view_navigation.launch" &
 sleep 5
 
-xterm -e "roslaunch add_markers add_markers"
+xterm -e "roslaunch add_markers add_markers" &
