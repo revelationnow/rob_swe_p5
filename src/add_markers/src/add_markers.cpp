@@ -53,15 +53,20 @@ struct Position
   double w;
 };
 
-const double GOAL_DELTA = 0.1;
-const Position Goal1 = {-4.0, -4.0, 1.0 };
+const double GOAL_DELTA = 0.4;
+const Position Goal1 = {-4.0, -1.0, 1.0 };
 const Position Goal2 = {-7.0, -7.0, 1.0 };
 volatile CurrentState robotState = CURRENT_STATE_INIT;
 
-bool compare(nav_msgs::Odometry odom, Position pos, double delta)
+bool compare(const nav_msgs::Odometry::ConstPtr& odom, Position pos, double delta)
 {
-  if( (fabs(odom.pose.pose.position.x - pos.x) < delta) &&
-      (fabs(odom.pose.pose.position.y - pos.y) < delta)
+  ROS_INFO("Diff : %f, %f : Limit : %f",
+              fabs(odom->pose.pose.position.x + pos.x),
+              fabs(odom->pose.pose.position.y + pos.y),
+              delta
+          );
+  if( (fabs(odom->pose.pose.position.x + pos.x) < delta) &&
+      (fabs(odom->pose.pose.position.y + pos.y) < delta)
     )
   {
     return true;
@@ -70,7 +75,7 @@ bool compare(nav_msgs::Odometry odom, Position pos, double delta)
   return false;
 }
 
-void DisplayMarker(ros::Publisher marker_pub, std::string marker_ns, int marker_id, Position pos)
+void DisplayMarker(ros::Publisher marker_pub, std::string marker_ns, int marker_id, Position pos, int action)
 {
     visualization_msgs::Marker marker;
     // Set the frame ID and timestamp.  See the TF tutorials for information on these.
@@ -86,7 +91,7 @@ void DisplayMarker(ros::Publisher marker_pub, std::string marker_ns, int marker_
     marker.type = visualization_msgs::Marker::CUBE;
 
     // Set the marker action.  Options are ADD, DELETE, and new in ROS Indigo: 3 (DELETEALL)
-    marker.action = visualization_msgs::Marker::ADD;
+    marker.action = action;
 
     // Set the pose of the marker.  This is a full 6DOF pose relative to the frame/time specified in the header
     marker.pose.position.x = pos.x;
@@ -125,7 +130,7 @@ void DisplayMarker(ros::Publisher marker_pub, std::string marker_ns, int marker_
 }
 
 
-void OdometryCallBack(const nav_msgs::Odometry odom)
+void OdometryCallBack(const nav_msgs::Odometry::ConstPtr& odom)
 {
   switch(robotState)
   {
@@ -144,6 +149,7 @@ void OdometryCallBack(const nav_msgs::Odometry odom)
     default:
       ROS_INFO("Current Robot state : %d", robotState);
   }
+  ROS_INFO("Current state : %d, odom : %f,%f",robotState, odom->pose.pose.position.x,odom->pose.pose.position.y);
 }
 
 int main( int argc, char** argv )
@@ -152,25 +158,29 @@ int main( int argc, char** argv )
   ros::NodeHandle n;
   ros::Rate r(1);
   ros::Publisher marker_pub = n.advertise<visualization_msgs::Marker>("visualization_marker", 1);
-  ros::Subscriber odom_sub  = n.subscribe("/odom", 20, OdometryCallBack);
+  ros::Subscriber odom_sub  = n.subscribe("odom", 1000, OdometryCallBack);
 
   robotState = CURRENT_STATE_GOING_TO_GOAL_1;
   while (ros::ok())
   {
+    ros::spinOnce();
+
     if(CURRENT_STATE_GOING_TO_GOAL_1 == robotState)
     {
-      DisplayMarker(marker_pub,"goal_marker", 0, Goal1);
+      DisplayMarker(marker_pub,"goal_marker", 0, Goal1, visualization_msgs::Marker::ADD);
     }
     else if(CURRENT_STATE_REACHED_GOAL_1 == robotState)
     {
       ROS_INFO("Reached pickup zone goal!");
+      DisplayMarker(marker_pub,"goal_marker", 0, Goal1, visualization_msgs::Marker::DELETE);
       sleep(5);
       robotState = CURRENT_STATE_GOING_TO_GOAL_2;
     }
     else if(CURRENT_STATE_REACHED_GOAL_2 == robotState)
     {
       ROS_INFO("Reached Final dropoff goal!");
-      DisplayMarker(marker_pub,"goal_marker", 0, Goal2);
+      sleep(1);
+      DisplayMarker(marker_pub,"goal_marker", 0, Goal2, visualization_msgs::Marker::ADD);
     }
 
     r.sleep();
