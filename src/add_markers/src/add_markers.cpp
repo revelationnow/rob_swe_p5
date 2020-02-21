@@ -1,8 +1,76 @@
 #include <ros/ros.h>
 #include <visualization_msgs/Marker.h>
 #include <string>
+#include <nav_msgs/Odometry.h>
+/*
 
-void DisplayMarker(ros::Publisher marker_pub, std::string marker_ns, int marker_id, double x, double y, double w)
+   Subscribe to /odom
+   Odometry message structure
+
+std_msgs/Header header
+  uint32 seq
+  time stamp
+  string frame_id
+string child_frame_id
+geometry_msgs/PoseWithCovariance pose
+  geometry_msgs/Pose pose
+    geometry_msgs/Point position
+      float64 x
+      float64 y
+      float64 z
+    geometry_msgs/Quaternion orientation
+      float64 x
+      float64 y
+      float64 z
+      float64 w
+  float64[36] covariance
+geometry_msgs/TwistWithCovariance twist
+  geometry_msgs/Twist twist
+    geometry_msgs/Vector3 linear
+      float64 x
+      float64 y
+      float64 z
+    geometry_msgs/Vector3 angular
+      float64 x
+      float64 y
+      float64 z
+  float64[36] covariance
+
+ */
+enum CurrentState
+{
+  CURRENT_STATE_INIT,
+  CURRENT_STATE_GOING_TO_GOAL_1,
+  CURRENT_STATE_REACHED_GOAL_1,
+  CURRENT_STATE_GOING_TO_GOAL_2,
+  CURRENT_STATE_REACHED_GOAL_2
+};
+
+struct Position
+{
+  double x;
+  double y;
+  double w;
+};
+
+const double GOAL_DELTA = 0.1;
+const Position Goal1 = {-4.0, -4.0, 1.0 };
+const Position Goal2 = {-7.0, -7.0, 1.0 };
+volatile CurrentState robotState = CURRENT_STATE_INIT;
+
+bool compare(nav_msgs::Odometry odom, Position pos, double delta)
+{
+  if( (fabs(odom.pose.pose.position.x - pos.x) < delta) &&
+      (fabs(odom.pose.pose.position.y - pos.y) < delta)
+    )
+  {
+    return true;
+  }
+
+  return false;
+}
+
+void DisplayMarker(ros::Publisher marker_pub, std::string marker_ns, int marker_id, Position pos)
 {
     visualization_msgs::Marker marker;
     // Set the frame ID and timestamp.  See the TF tutorials for information on these.
@@ -21,13 +89,13 @@ void DisplayMarker(ros::Publisher marker_pub, std::string marker_ns, int marker_
     marker.action = visualization_msgs::Marker::ADD;
 
     // Set the pose of the marker.  This is a full 6DOF pose relative to the frame/time specified in the header
-    marker.pose.position.x = -4;
-    marker.pose.position.y = -1;
+    marker.pose.position.x = pos.x;
+    marker.pose.position.y = pos.y;
     marker.pose.position.z = 0;
     marker.pose.orientation.x = 0.0;
     marker.pose.orientation.y = 0.0;
     marker.pose.orientation.z = 0.0;
-    marker.pose.orientation.w = 1.0;
+    marker.pose.orientation.w = pos.w;
 
     // Set the scale of the marker -- 1x1x1 here means 1m on a side
     marker.scale.x = 1.0;
@@ -57,16 +125,53 @@ void DisplayMarker(ros::Publisher marker_pub, std::string marker_ns, int marker_
 }
 
 
+void OdometryCallBack(const nav_msgs::Odometry odom)
+{
+  switch(robotState)
+  {
+    case CURRENT_STATE_GOING_TO_GOAL_1:
+      if(compare(odom, Goal1, GOAL_DELTA))
+      {
+        robotState = CURRENT_STATE_REACHED_GOAL_1;
+      }
+      break;
+    case CURRENT_STATE_GOING_TO_GOAL_2:
+      if(compare(odom, Goal2, GOAL_DELTA))
+      {
+        robotState = CURRENT_STATE_REACHED_GOAL_2;
+      }
+      break;
+    default:
+      ROS_INFO("Current Robot state : %d", robotState);
+  }
+}
+
 int main( int argc, char** argv )
 {
   ros::init(argc, argv, "add_markers");
   ros::NodeHandle n;
   ros::Rate r(1);
   ros::Publisher marker_pub = n.advertise<visualization_msgs::Marker>("visualization_marker", 1);
+  ros::Subscriber odom_sub  = n.subscribe("/odom", 20, OdometryCallBack);
 
+  robotState = CURRENT_STATE_GOING_TO_GOAL_1;
   while (ros::ok())
   {
-    DisplayMarker(marker_pub,"goal_marker", 0, -4.0, -1.0, 1.0);
+    if(CURRENT_STATE_GOING_TO_GOAL_1 == robotState)
+    {
+      DisplayMarker(marker_pub,"goal_marker", 0, Goal1);
+    }
+    else if(CURRENT_STATE_REACHED_GOAL_1 == robotState)
+    {
+      ROS_INFO("Reached pickup zone goal!");
+      sleep(5);
+      robotState = CURRENT_STATE_GOING_TO_GOAL_2;
+    }
+    else if(CURRENT_STATE_REACHED_GOAL_2 == robotState)
+    {
+      ROS_INFO("Reached Final dropoff goal!");
+      DisplayMarker(marker_pub,"goal_marker", 0, Goal2);
+    }
 
     r.sleep();
   }
