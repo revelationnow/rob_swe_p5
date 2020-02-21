@@ -49,19 +49,19 @@ int main(int argc, char** argv){
   //tell the action client that we want to spin a thread by default
   MoveBaseClient ac("move_base", true);
 
+  // Wait 5 sec for move_base action server to come up
+  while(!ac.waitForServer(ros::Duration(5.0))){
+    ROS_INFO("Waiting for the move_base action server to come up");
+  }
   /* Go to first goal */
   bool success = GoToGoal(ac, -4.0, -1.0, 1.0);
 
   if(true == success)
   {
     sleep(5);
-    success = GoToGoal(ac, -1.0, -1.0, 1.0);
+    success = GoToGoal(ac, -7.0, -7.0, 1.0);
   }
 
-  // Wait 5 sec for move_base action server to come up
-  while(!ac.waitForServer(ros::Duration(5.0))){
-    ROS_INFO("Waiting for the move_base action server to come up");
-  }
 
   return 0;
 }
