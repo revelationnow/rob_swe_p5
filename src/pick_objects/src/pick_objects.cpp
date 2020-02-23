@@ -54,12 +54,12 @@ int main(int argc, char** argv){
     ROS_INFO("Waiting for the move_base action server to come up");
   }
   /* Go to first goal */
-  bool success = GoToGoal(ac, -4.0, -1.0, 1.0);
+  bool success = GoToGoal(ac, 4.0, 0.5, 1.0);
 
   if(true == success)
   {
     sleep(5);
-    success = GoToGoal(ac, -7.0, -7.0, 1.0);
+    success = GoToGoal(ac, 8.0, 6.0, 1.0);
   }
 
 

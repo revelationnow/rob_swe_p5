@@ -53,20 +53,20 @@ struct Position
   double w;
 };
 
-const double GOAL_DELTA = 0.4;
-const Position Goal1 = {-4.0, -1.0, 1.0 };
-const Position Goal2 = {-7.0, -7.0, 1.0 };
+const double GOAL_DELTA = 1.5;
+const Position Goal1 = {4.0, 0.5, 1.0 };
+const Position Goal2 = {8.0, 6.0, 1.0 };
 volatile CurrentState robotState = CURRENT_STATE_INIT;
 
 bool compare(const nav_msgs::Odometry::ConstPtr& odom, Position pos, double delta)
 {
   ROS_INFO("Diff : %f, %f : Limit : %f",
-              fabs(odom->pose.pose.position.x + pos.x),
-              fabs(odom->pose.pose.position.y + pos.y),
+              fabs(odom->pose.pose.position.x - pos.x),
+              fabs(odom->pose.pose.position.y - pos.y),
               delta
           );
-  if( (fabs(odom->pose.pose.position.x + pos.x) < delta) &&
-      (fabs(odom->pose.pose.position.y + pos.y) < delta)
+  if( (fabs(odom->pose.pose.position.x - pos.x) < delta) &&
+      (fabs(odom->pose.pose.position.y - pos.y) < delta)
     )
   {
     return true;
